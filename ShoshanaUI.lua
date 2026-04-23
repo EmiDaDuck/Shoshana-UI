@@ -182,10 +182,11 @@ local function bindHoverStates(targetButton, stateTable)
     end)
 end
 
-local function makeDraggable(handle, target)
+local function makeDraggable(handle, target, shadow)
     local dragging = false
     local dragStart
     local startPosition
+    local shadowStartPosition
 
     local function update(input)
         if not dragging then
@@ -193,12 +194,24 @@ local function makeDraggable(handle, target)
         end
 
         local delta = input.Position - dragStart
-        target.Position = UDim2.new(
+
+        local newPosition = UDim2.new(
             startPosition.X.Scale,
             startPosition.X.Offset + delta.X,
             startPosition.Y.Scale,
             startPosition.Y.Offset + delta.Y
         )
+
+        target.Position = newPosition
+
+        if shadow then
+            shadow.Position = UDim2.new(
+                shadowStartPosition.X.Scale,
+                shadowStartPosition.X.Offset + delta.X,
+                shadowStartPosition.Y.Scale,
+                shadowStartPosition.Y.Offset + delta.Y
+            )
+        end
     end
 
     handle.InputBegan:Connect(function(input)
@@ -210,6 +223,7 @@ local function makeDraggable(handle, target)
         dragging = true
         dragStart = input.Position
         startPosition = target.Position
+        shadowStartPosition = shadow and shadow.Position or nil
 
         local connection
         connection = input.Changed:Connect(function()
@@ -544,8 +558,8 @@ function ShoshanaUI.new(config)
     })
     self.PageHolder = pageHolder
 
-    makeDraggable(self.Topbar, self.Window)
-    makeDraggable(self.Sidebar, self.Window)
+     makeDraggable(self.Topbar, self.Window, self.Shadow)
+     makeDraggable(self.Sidebar, self.Window, self.Shadow)
 
     function self:SetVisible(state)
         self.Open = state
