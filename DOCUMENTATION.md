@@ -295,6 +295,54 @@ section:CreateParagraph({
 
 ---
 
+### `section:CreateTextbox(data)`
+
+Creates a text input row with live change callbacks and focus-state animation.
+
+```lua
+local searchBox = section:CreateTextbox({
+    Text = "Search",
+    Placeholder = "Type to filter",
+    Callback = function(value)
+        print(value)
+    end,
+})
+
+searchBox:Set("Updated")
+print(searchBox:Get())
+```
+
+**Supported fields**
+
+| Field | Type | Default |
+|---|---|---|
+| `Text` | `string` | `"Textbox"` |
+| `Placeholder` | `string` | `"Enter text"` |
+| `Default` | `string` | `""` |
+| `Callback` | `function` | `nil` |
+| `Finished` | `function` | `nil` |
+| `Live` | `boolean` | `true` |
+| `ClearOnFocus` | `boolean` | `false` |
+| `MaxLength` | `number` | `nil` |
+| `Numeric` | `boolean` | `false` |
+| `Height` | `number` | `72` |
+
+**Returns**
+- API table with:
+  - `Set(value)`
+  - `Get()`
+  - `SetPlaceholder(text)`
+  - `Focus()`
+
+**Behavior**
+- `Callback` is invoked during initial rendering and on each text change when `Live` is enabled.
+- If `Live` is set to `false`, `Callback` is invoked when focus is lost.
+- `Finished` is invoked on focus loss and receives the current text and the `enterPressed` state.
+- `Numeric = true` filters the content to digits, `.` and `-`.
+- `MaxLength` truncates the stored value before callbacks are fired.
+
+---
+
 ### `section:CreateToggle(data)`
 
 Creates a two-state switch control.

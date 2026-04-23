@@ -23,6 +23,7 @@ The current build is suited for `LocalScript` execution and is structured around
 - Toggle
 - Slider
 - Dropdown
+- Textbox
 
 ## Installation
 
@@ -103,6 +104,14 @@ section:CreateDropdown({
         print("Mode:", value)
     end,
 })
+
+local search = section:CreateTextbox({
+    Text = "Search",
+    Placeholder = "Type to filter",
+    Callback = function(value)
+        print("Search:", value)
+    end,
+})
 ```
 
 ## API Overview
@@ -146,6 +155,7 @@ tab:CreateSection(title, description)
 section:CreateButton(data)
 section:CreateLabel(data)
 section:CreateParagraph(data)
+section:CreateTextbox(data)
 section:CreateToggle(data)
 section:CreateSlider(data)
 section:CreateDropdown(data)

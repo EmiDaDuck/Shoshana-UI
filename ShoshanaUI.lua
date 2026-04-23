@@ -1096,6 +1096,168 @@ function ShoshanaUI:CreateTab(name)
             return row
         end
 
+        function section:CreateTextbox(data)
+            data = data or {}
+
+            local value = data.Default ~= nil and tostring(data.Default) or ""
+            local placeholder = data.Placeholder or "Enter text"
+            local clearOnFocus = data.ClearOnFocus == true
+            local maxLength = tonumber(data.MaxLength)
+            local live = data.Live ~= false
+            local rowHeight = math.max(data.Height or 72, 72)
+
+            local row = createRow(rowHeight)
+
+            create("TextLabel", {
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 16, 0, 0),
+                Size = UDim2.new(1, -32, 0, 20),
+                Font = Enum.Font.GothamSemibold,
+                Text = data.Text or "Textbox",
+                TextColor3 = Theme.Text,
+                TextSize = 13,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = row,
+            })
+
+            local inputFrame = create("Frame", {
+                Position = UDim2.new(0, 16, 0, 28),
+                Size = UDim2.new(1, -32, 0, rowHeight - 40),
+                BackgroundColor3 = Theme.Background,
+                Parent = row,
+            })
+            applyCorner(inputFrame, 12)
+            local inputStroke = applyStroke(inputFrame, Theme.StrokeSoft, 0.08, 1)
+
+            local focusLine = create("Frame", {
+                AnchorPoint = Vector2.new(0.5, 1),
+                Position = UDim2.new(0.5, 0, 1, -1),
+                Size = UDim2.new(1, -2, 0, 2),
+                BackgroundColor3 = Theme.Accent,
+                BackgroundTransparency = 0.15,
+                BorderSizePixel = 0,
+                Parent = inputFrame,
+            })
+            applyCorner(focusLine, 999)
+            applyGradient(focusLine, 0, {
+                ColorSequenceKeypoint.new(0, Theme.Accent),
+                ColorSequenceKeypoint.new(1, Theme.AccentSoft),
+            })
+
+            local box = create("TextBox", {
+                BackgroundTransparency = 1,
+                ClearTextOnFocus = clearOnFocus,
+                Position = UDim2.new(0, 12, 0, 0),
+                Size = UDim2.new(1, -24, 1, 0),
+                Font = Enum.Font.Gotham,
+                PlaceholderText = placeholder,
+                PlaceholderColor3 = Theme.Subtext,
+                Text = value,
+                TextColor3 = Theme.Text,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextYAlignment = Enum.TextYAlignment.Center,
+                Parent = inputFrame,
+            })
+
+            local api = {}
+
+            local function sanitize(textValue)
+                textValue = tostring(textValue or "")
+
+                if maxLength and maxLength > 0 then
+                    textValue = string.sub(textValue, 1, maxLength)
+                end
+
+                if data.Numeric then
+                    textValue = textValue:gsub("[^%d%.-]", "")
+                end
+
+                return textValue
+            end
+
+            local function writeValue(newValue, fireCallback)
+                local sanitized = sanitize(newValue)
+                value = sanitized
+
+                if box.Text ~= sanitized then
+                    box.Text = sanitized
+                end
+
+                if fireCallback then
+                    safeCall(data.Callback, value)
+                end
+            end
+
+            box.Focused:Connect(function()
+                tween(row, Anim.Fast, { BackgroundColor3 = Theme.SurfaceHover })
+                tween(inputFrame, Anim.Fast, { BackgroundColor3 = Theme.Window })
+                tween(inputStroke, Anim.Fast, { Color = Theme.Accent, Transparency = 0 })
+                tween(focusLine, Anim.Fast, { BackgroundTransparency = 0 })
+            end)
+
+            box.FocusLost:Connect(function(enterPressed)
+                tween(row, Anim.Fast, { BackgroundColor3 = Theme.SurfaceAlt })
+                tween(inputFrame, Anim.Fast, { BackgroundColor3 = Theme.Background })
+                tween(inputStroke, Anim.Fast, { Color = Theme.StrokeSoft, Transparency = 0.08 })
+                tween(focusLine, Anim.Fast, { BackgroundTransparency = 0.15 })
+
+                writeValue(box.Text, not live)
+                safeCall(data.Finished, value, enterPressed)
+            end)
+
+            box:GetPropertyChangedSignal("Text"):Connect(function()
+                local previous = value
+                local sanitized = sanitize(box.Text)
+
+                if sanitized ~= box.Text then
+                    local cursor = box.CursorPosition
+                    box.Text = sanitized
+                    if cursor and cursor > 0 then
+                        box.CursorPosition = math.min(cursor, #sanitized + 1)
+                    end
+                end
+
+                value = sanitized
+
+                if live and previous ~= value then
+                    safeCall(data.Callback, value)
+                end
+            end)
+
+            bindHoverStates(box, {
+                hover = function()
+                    if not box:IsFocused() then
+                        tween(row, Anim.Fast, { BackgroundColor3 = Theme.SurfaceHover })
+                    end
+                end,
+                leave = function()
+                    if not box:IsFocused() then
+                        tween(row, Anim.Fast, { BackgroundColor3 = Theme.SurfaceAlt })
+                    end
+                end,
+            })
+
+            function api:Set(newValue)
+                writeValue(newValue, true)
+            end
+
+            function api:Get()
+                return value
+            end
+
+            function api:SetPlaceholder(newPlaceholder)
+                box.PlaceholderText = tostring(newPlaceholder or "")
+            end
+
+            function api:Focus()
+                box:CaptureFocus()
+            end
+
+            writeValue(value, live)
+            return api
+        end
+
         function section:CreateToggle(data)
             data = data or {}
             local state = data.Default == true
