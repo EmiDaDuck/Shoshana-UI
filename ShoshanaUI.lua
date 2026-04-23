@@ -32,6 +32,8 @@ local Anim = {
     Medium = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
     Slow = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
     Spring = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    Hide = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+    Reveal = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 }
 
 local function create(className, properties, children)
@@ -333,12 +335,21 @@ function ShoshanaUI.new(config)
     })
     self.WindowConstraint = windowConstraint
 
-    local scale = create("UIScale", {
+    self.WindowScale = create("UIScale", {
         Scale = 0.94,
         Parent = self.Window,
     })
 
-    tween(scale, Anim.Spring, { Scale = 1 })
+    self.ShadowScale = create("UIScale", {
+        Scale = 1,
+        Parent = self.Shadow,
+    })
+
+    self.IsAnimatingVisibility = false
+    self.DefaultWindowSize = defaultWindowSize
+    self.DefaultShadowSize = defaultShadowSize
+
+    tween(self.WindowScale, Anim.Spring, { Scale = 1 })
     tween(self.Shadow, Anim.Slow, { BackgroundTransparency = 0.25 })
 
     local accentBar = create("Frame", {
@@ -571,9 +582,65 @@ function ShoshanaUI.new(config)
     makeDraggable(self.Topbar, self.Window, self.Shadow)
     makeDraggable(self.Sidebar, self.Window, self.Shadow)
 
+    function self:_AnimateHiddenState(onComplete)
+        if self.IsAnimatingVisibility then
+            return
+        end
+
+        self.IsAnimatingVisibility = true
+        self.ScreenGui.Enabled = true
+        self.Body.Visible = true
+
+        tween(self.WindowScale, Anim.Hide, { Scale = 0 })
+        tween(self.ShadowScale, Anim.Hide, { Scale = 0 })
+        tween(self.Shadow, Anim.Hide, { BackgroundTransparency = 1 })
+
+        task.delay(Anim.Hide.Time + 0.02, function()
+            self.IsAnimatingVisibility = false
+            if onComplete then
+                onComplete()
+            end
+        end)
+    end
+
+    function self:_AnimateVisibleState()
+        if self.IsAnimatingVisibility then
+            return
+        end
+
+        self.IsAnimatingVisibility = true
+        self.ScreenGui.Enabled = true
+        self.Body.Visible = true
+        self.Window.Size = self.DefaultWindowSize
+        self.Shadow.Size = self.DefaultShadowSize
+        self.WindowConstraint.MinSize = Vector2.new(680, 420)
+        self.WindowScale.Scale = 0
+        self.ShadowScale.Scale = 0
+        self.Shadow.BackgroundTransparency = 1
+
+        tween(self.WindowScale, Anim.Reveal, { Scale = 1 })
+        tween(self.ShadowScale, Anim.Reveal, { Scale = 1 })
+        tween(self.Shadow, Anim.Slow, { BackgroundTransparency = 0.25 })
+
+        task.delay(math.max(Anim.Reveal.Time, Anim.Slow.Time) + 0.02, function()
+            self.IsAnimatingVisibility = false
+        end)
+    end
+
     function self:SetVisible(state)
-        self.Open = state
-        self.ScreenGui.Enabled = state
+        if state then
+            self.Open = true
+            self.Minimized = false
+            self:_AnimateVisibleState()
+            return
+        end
+
+        self.Open = false
+        self:_AnimateHiddenState(function()
+            if self.ScreenGui and self.ScreenGui.Parent then
+                self.ScreenGui.Enabled = false
+            end
+        end)
     end
 
     function self:ToggleVisible()
@@ -588,23 +655,15 @@ function ShoshanaUI.new(config)
         self.Minimized = state
 
         if state then
-            self.WindowConstraint.MinSize = Vector2.new(680, 58)
-            tween(self.Window, Anim.Medium, {
-                Size = UDim2.new(self.Window.Size.X.Scale, self.Window.Size.X.Offset, 0, 58)
-            })
-            tween(self.Shadow, Anim.Medium, {
-                Size = UDim2.new(self.Shadow.Size.X.Scale, self.Shadow.Size.X.Offset, 0, 88)
-            })
-            task.delay(0.12, function()
-                if self.Minimized and self.Body and self.Body.Parent then
-                    self.Body.Visible = false
+            self.Open = false
+            self:_AnimateHiddenState(function()
+                if self.ScreenGui and self.ScreenGui.Parent then
+                    self.ScreenGui.Enabled = false
                 end
             end)
         else
-            self.Body.Visible = true
-            self.WindowConstraint.MinSize = Vector2.new(680, 420)
-            tween(self.Window, Anim.Slow, { Size = defaultWindowSize })
-            tween(self.Shadow, Anim.Slow, { Size = defaultShadowSize })
+            self.Open = true
+            self:_AnimateVisibleState()
         end
     end
 
