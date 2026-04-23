@@ -182,6 +182,15 @@ local function bindHoverStates(targetButton, stateTable)
     end)
 end
 
+local function offsetSize(size, offsetX, offsetY)
+    return UDim2.new(
+        size.X.Scale,
+        size.X.Offset + offsetX,
+        size.Y.Scale,
+        size.Y.Offset + offsetY
+    )
+end
+
 local function makeDraggable(handle, target, shadow)
     local dragging = false
     local dragStart
@@ -195,16 +204,14 @@ local function makeDraggable(handle, target, shadow)
 
         local delta = input.Position - dragStart
 
-        local newPosition = UDim2.new(
+        target.Position = UDim2.new(
             startPosition.X.Scale,
             startPosition.X.Offset + delta.X,
             startPosition.Y.Scale,
             startPosition.Y.Offset + delta.Y
         )
 
-        target.Position = newPosition
-
-        if shadow then
+        if shadow and shadowStartPosition then
             shadow.Position = UDim2.new(
                 shadowStartPosition.X.Scale,
                 shadowStartPosition.X.Offset + delta.X,
@@ -252,6 +259,8 @@ function ShoshanaUI.new(config)
     local title = config.Title or "Shoshana"
     local subtitle = config.Subtitle or "Premium Interface"
     local keybind = config.Keybind or Enum.KeyCode.RightShift
+    local defaultWindowSize = config.Size or UDim2.fromOffset(840, 510)
+    local defaultShadowSize = offsetSize(defaultWindowSize, 26, 26)
 
     local self = setmetatable({}, ShoshanaUI)
     self.Tabs = {}
@@ -299,7 +308,7 @@ function ShoshanaUI.new(config)
         Name = "Shadow",
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(866, 536),
+        Size = defaultShadowSize,
         BackgroundColor3 = Theme.Shadow,
         BackgroundTransparency = 0.45,
         Parent = self.Root,
@@ -310,18 +319,19 @@ function ShoshanaUI.new(config)
         Name = "Window",
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = config.Size or UDim2.fromOffset(840, 510),
+        Size = defaultWindowSize,
         BackgroundColor3 = Theme.Window,
         Parent = self.Root,
     })
     applyCorner(self.Window, 24)
     applyStroke(self.Window, Theme.Stroke, 0, 1)
 
-    create("UISizeConstraint", {
+    local windowConstraint = create("UISizeConstraint", {
         MinSize = Vector2.new(680, 420),
         MaxSize = Vector2.new(1200, 760),
         Parent = self.Window,
     })
+    self.WindowConstraint = windowConstraint
 
     local scale = create("UIScale", {
         Scale = 0.94,
@@ -558,8 +568,8 @@ function ShoshanaUI.new(config)
     })
     self.PageHolder = pageHolder
 
-     makeDraggable(self.Topbar, self.Window, self.Shadow)
-     makeDraggable(self.Sidebar, self.Window, self.Shadow)
+    makeDraggable(self.Topbar, self.Window, self.Shadow)
+    makeDraggable(self.Sidebar, self.Window, self.Shadow)
 
     function self:SetVisible(state)
         self.Open = state
@@ -578,15 +588,23 @@ function ShoshanaUI.new(config)
         self.Minimized = state
 
         if state then
-            tween(self.Window, Anim.Medium, { Size = UDim2.new(self.Window.Size.X.Scale, self.Window.Size.X.Offset, 0, 58) })
-            tween(self.Shadow, Anim.Medium, { Size = UDim2.new(self.Shadow.Size.X.Scale, self.Shadow.Size.X.Offset, 0, 88) })
+            self.WindowConstraint.MinSize = Vector2.new(680, 58)
+            tween(self.Window, Anim.Medium, {
+                Size = UDim2.new(self.Window.Size.X.Scale, self.Window.Size.X.Offset, 0, 58)
+            })
+            tween(self.Shadow, Anim.Medium, {
+                Size = UDim2.new(self.Shadow.Size.X.Scale, self.Shadow.Size.X.Offset, 0, 88)
+            })
             task.delay(0.12, function()
-                self.Body.Visible = false
+                if self.Minimized and self.Body and self.Body.Parent then
+                    self.Body.Visible = false
+                end
             end)
         else
             self.Body.Visible = true
-            tween(self.Window, Anim.Slow, { Size = config.Size or UDim2.fromOffset(840, 510) })
-            tween(self.Shadow, Anim.Slow, { Size = UDim2.fromOffset(866, 536) })
+            self.WindowConstraint.MinSize = Vector2.new(680, 420)
+            tween(self.Window, Anim.Slow, { Size = defaultWindowSize })
+            tween(self.Shadow, Anim.Slow, { Size = defaultShadowSize })
         end
     end
 
